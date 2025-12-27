@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithm to Flowchart Converter</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f8f8f8; }
+
+        .flow-node {
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            font-weight: 600;
+            position: relative;
+        }
+
+        .flow-node::after {
+            content: '';
+            position: absolute;
+            bottom: -2rem;
+            left: 50%;
+            width: 2px;
+            height: 2rem;
+            background-color: #4f46e5;
+            transform: translateX(-50%);
+        }
+
+        .START, .END {
+            background: #10b981;
+            color: white;
+            border-radius: 9999px;
+            border: 2px solid #047857;
+        }
+
+        .PROCESS {
+            background: #e0e7ff;
+            border: 2px solid #6366f1;
+            color: #1e3a8a;
+        }
+
+        .INPUT_OUTPUT {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            color: #92400e;
+            clip-path: polygon(10% 0%, 100% 0%, 90% 100%, 0% 100%);
+        }
+
+        .DECISION {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+            color: #991b1b;
+            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+        }
+    </style>
+</head>
+
+<body class="p-6">
+
+<div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-xl">
+
+    <h1 class="text-3xl font-bold mb-4 text-indigo-700">Algorithm Flowchart Generator</h1>
+
+    <textarea id="algorithmInput" rows="8" class="w-full p-3 border rounded-lg"
+              placeholder="Write your algorithm here..."></textarea>
+
+    <button onclick="generateFlowchart()"
+            class="mt-4 px-6 py-3 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700">
+        Convert to Flowchart
+    </button>
+
+    <div id="messageBox" class="mt-4 text-center font-medium hidden"></div>
+
+    <h2 class="mt-6 text-xl font-semibold">Flowchart Output:</h2>
+    <div id="flowchartOutput" class="mt-4 p-4 bg-gray-50 rounded-xl min-h-64 border"></div>
+
+</div>
+
+<script>
+    const API_KEY = "AIzaSyBWpOCt4BuuYHhoWDYI1X0OkmQ_gPXDinM";
+    const MODEL_NAME = "gemini-2.0-flash";
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+
+    async function generateFlowchart() {
+        const text = document.getElementById("algorithmInput").value.trim();
+        if (!text) return showMessage("Please enter an algorithm.", "error");
+
+        showMessage("Generating flowchart...", "loading");
+
+        const prompt = `
+Convert the following algorithm into a flowchart represented ONLY as PURE JSON.
+Respond ONLY with JSON. No text, no markdown, no explanation.
+
+JSON format:
+[
+  { "id": 1, "type": "START", "description": "Start" },
+  { "id": 2, "type": "INPUT_OUTPUT", "description": "Input number" },
+  { "id": 3, "type": "PROCESS", "description": "Compute result" },
+  { "id": 4, "type": "DECISION", "description": "Check condition" },
+  { "id": 5, "type": "END", "description": "End" }
+]
+
+Algorithm:
+${text}
+`;
+
+        const body = {
+            contents: [{ parts: [{ text: prompt }] }]
+        };
+
+        try {
+            const response = await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+
+            const json = await response.json();
+            console.log(json);
+
+            const reply = json.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (!reply) return showMessage("API returned no result.", "error");
+
+            const clean = reply.replace(/```json|```/g, "").trim();
+
+            let steps;
+            try {
+                steps = JSON.parse(clean);
+            } catch {
+                return showMessage("Invalid JSON received from API.", "error");
+            }
+
+            renderFlowchart(steps);
+            showMessage("Flowchart generated successfully!", "success");
+
+        } catch (err) {
+            console.error(err);
+            showMessage("Error connecting to API.", "error");
+        }
+    }
+
+    function renderFlowchart(steps) {
+        const out = document.getElementById("flowchartOutput");
+        out.innerHTML = "";
+
+        steps.forEach(step => {
+            const el = document.createElement("div");
+            el.className = `flow-node ${step.type}`;
+            el.textContent = step.description;
+            out.appendChild(el);
+        });
+    }
+
+    function showMessage(msg, type) {
+        const box = document.getElementById("messageBox");
+        box.className = "mt-4 text-center font-medium p-2 rounded";
+
+        if (type === "error") box.classList.add("bg-red-100", "text-red-700");
+        if (type === "success") box.classList.add("bg-green-100", "text-green-700");
+        if (type === "loading") box.classList.add("bg-blue-100", "text-blue-700");
+
+        box.textContent = msg;
+        box.classList.remove("hidden");
+    }
+</script>
+
+</body>
+</html>
